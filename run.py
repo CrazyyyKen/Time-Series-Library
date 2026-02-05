@@ -42,6 +42,25 @@ if __name__ == '__main__':
 
     # inputation task
     parser.add_argument('--mask_rate', type=float, default=0.25, help='mask ratio')
+    parser.add_argument('--sensor_mask', type=int, default=-1,
+                        help='1-based sensor index to mask in input; -1 disables')
+    parser.add_argument('--sensor_mask_value', type=float, default=0.0,
+                        help='value used to mask the selected sensor channel')
+    parser.add_argument('--mask_in_train', action='store_true', default=False,
+                        help='apply fixed sensor mask during training')
+    parser.add_argument('--mask_in_val', action='store_true', default=False,
+                        help='apply fixed sensor mask during validation')
+    parser.add_argument('--mask_in_test', action='store_true', default=False,
+                        help='apply fixed sensor mask during test when test_mask_mode=none')
+    parser.add_argument('--random_sensor_mask', action='store_true', default=False,
+                        help='randomly mask one sensor channel during training')
+    parser.add_argument('--random_sensor_mask_per_sample', action='store_true', default=False,
+                        help='if set, choose masked sensor per sample instead of per batch')
+    parser.add_argument('--random_sensor_mask_prob', type=float, default=1.0,
+                        help='probability to apply random sensor mask on a batch')
+    parser.add_argument('--test_mask_mode', type=str, default='sweep',
+                        choices=['sweep', 'fixed', 'none'],
+                        help='test-time masking: sweep all sensors (default), fixed sensor, or none')
 
     # anomaly detection task
     parser.add_argument('--anomaly_ratio', type=float, default=0.25, help='prior anomaly ratio (%%)')
@@ -172,6 +191,26 @@ if __name__ == '__main__':
     print('Args in experiment:')
     print_args(args)
 
+    mask_tag = ""
+    if (
+        args.sensor_mask >= 1
+        or args.mask_in_train
+        or args.mask_in_val
+        or args.mask_in_test
+        or args.test_mask_mode != 'sweep'
+        or args.sensor_mask_value != 0.0
+        or args.random_sensor_mask
+        or args.random_sensor_mask_per_sample
+        or args.random_sensor_mask_prob != 1.0
+    ):
+        mask_tag = (
+            f"_maskS{args.sensor_mask if args.sensor_mask >= 1 else 'NA'}"
+            f"_tr{int(args.mask_in_train)}_va{int(args.mask_in_val)}"
+            f"_te{int(args.mask_in_test)}_tm{args.test_mask_mode}"
+            f"_rnd{int(args.random_sensor_mask)}"
+            f"_rps{int(args.random_sensor_mask_per_sample)}"
+            f"_rp{args.random_sensor_mask_prob}"
+        )
 
     if args.task_name == 'long_term_forecast':
         from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
@@ -199,7 +238,7 @@ if __name__ == '__main__':
         for ii in range(args.itr):
             # setting record of experiments
             exp = Exp(args)  # set experiments
-            setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}'.format(
+            setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}{}'.format(
                 args.task_name,
                 args.model_id,
                 args.model,
@@ -218,7 +257,7 @@ if __name__ == '__main__':
                 args.factor,
                 args.embed,
                 args.distil,
-                args.des, ii)
+                args.des, ii, mask_tag)
 
             print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
             exp.train(setting)
@@ -233,7 +272,7 @@ if __name__ == '__main__':
     else:
         exp = Exp(args)  # set experiments
         ii = 0
-        setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}'.format(
+        setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}{}'.format(
             args.task_name,
             args.model_id,
             args.model,
@@ -252,7 +291,7 @@ if __name__ == '__main__':
             args.factor,
             args.embed,
             args.distil,
-            args.des, ii)
+            args.des, ii, mask_tag)
 
         print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
         exp.test(setting, test=1)

@@ -19,6 +19,55 @@ class Exp_Long_Term_Forecast(Exp_Basic):
     def __init__(self, args):
         super(Exp_Long_Term_Forecast, self).__init__(args)
 
+    def _apply_fixed_sensor_mask(self, batch_x):
+        mask_sensor = getattr(self.args, 'sensor_mask', -1)
+        if mask_sensor is None or mask_sensor < 1:
+            return batch_x
+        idx = mask_sensor - 1
+        if idx >= batch_x.shape[-1]:
+            raise ValueError(f"sensor_mask {mask_sensor} out of range for input with {batch_x.shape[-1]} channels")
+        mask_value = getattr(self.args, 'sensor_mask_value', 0.0)
+        masked = batch_x.clone()
+        masked[:, :, idx] = mask_value
+        return masked
+
+    def _get_test_mask_indices(self, test_data):
+        mode = getattr(self.args, 'test_mask_mode', 'sweep')
+        if mode == 'none':
+            if getattr(self.args, 'mask_in_test', False):
+                if getattr(self.args, 'sensor_mask', -1) < 1:
+                    raise ValueError("mask_in_test requires --sensor_mask >= 1 when test_mask_mode='none'")
+                return [self.args.sensor_mask - 1]
+            return [None]
+        if mode == 'fixed':
+            if getattr(self.args, 'sensor_mask', -1) < 1:
+                raise ValueError("test_mask_mode='fixed' requires --sensor_mask >= 1")
+            return [self.args.sensor_mask - 1]
+        # default: sweep
+        num_sensors = test_data.data_x.shape[-1] if hasattr(test_data, 'data_x') else None
+        if num_sensors is None:
+            num_sensors = self.args.enc_in
+        return [None] + list(range(num_sensors))
+
+    def _apply_random_sensor_mask(self, batch_x):
+        num_sensors = batch_x.shape[-1]
+        if num_sensors < 1:
+            return batch_x
+        prob = getattr(self.args, 'random_sensor_mask_prob', 1.0)
+        if prob < 1.0 and torch.rand(1, device=batch_x.device).item() > prob:
+            return batch_x
+        mask_value = getattr(self.args, 'sensor_mask_value', 0.0)
+        per_sample = getattr(self.args, 'random_sensor_mask_per_sample', False)
+        masked = batch_x.clone()
+        if not per_sample:
+            idx = int(torch.randint(0, num_sensors, (1,), device=batch_x.device).item())
+            masked[:, :, idx] = mask_value
+            return masked
+        idxs = torch.randint(0, num_sensors, (batch_x.shape[0],), device=batch_x.device)
+        for b in range(batch_x.shape[0]):
+            masked[b, :, idxs[b]] = mask_value
+        return masked
+
     def _build_model(self):
         model = self.model_dict[self.args.model](self.args).float()
 
@@ -49,6 +98,11 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
                 batch_x_mark = batch_x_mark.float().to(self.device)
                 batch_y_mark = batch_y_mark.float().to(self.device)
+
+                if getattr(self.args, 'mask_in_val', False):
+                    batch_x = self._apply_fixed_sensor_mask(batch_x)
+                if getattr(self.args, 'random_sensor_mask', False):
+                    batch_x = self._apply_random_sensor_mask(batch_x)
 
                 # decoder input
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
@@ -106,6 +160,11 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 batch_y = batch_y.float().to(self.device)
                 batch_x_mark = batch_x_mark.float().to(self.device)
                 batch_y_mark = batch_y_mark.float().to(self.device)
+
+                if getattr(self.args, 'mask_in_train', False):
+                    batch_x = self._apply_fixed_sensor_mask(batch_x)
+                if getattr(self.args, 'random_sensor_mask', False):
+                    batch_x = self._apply_random_sensor_mask(batch_x)
 
                 # decoder input
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
@@ -171,10 +230,7 @@ class Exp_Long_Term_Forecast(Exp_Basic):
             print('loading model')
             self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
 
-        num_sensors = test_data.data_x.shape[-1] if hasattr(test_data, 'data_x') else None
-        if num_sensors is None:
-            num_sensors = self.args.enc_in
-        mask_indices = [None] + list(range(num_sensors))
+        mask_indices = self._get_test_mask_indices(test_data)
 
         self.model.eval()
         for mask_idx in mask_indices:
@@ -198,7 +254,8 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                         batch_x_masked = batch_x
                     else:
                         batch_x_masked = batch_x.clone()
-                        batch_x_masked[:, :, mask_idx] = 0.0
+                        mask_value = getattr(self.args, 'sensor_mask_value', 0.0)
+                        batch_x_masked[:, :, mask_idx] = mask_value
 
                     # decoder input
                     dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
