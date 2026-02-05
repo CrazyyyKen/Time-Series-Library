@@ -174,13 +174,13 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         num_sensors = test_data.data_x.shape[-1] if hasattr(test_data, 'data_x') else None
         if num_sensors is None:
             num_sensors = self.args.enc_in
-        mask_indices = list(range(num_sensors))
+        mask_indices = [None] + list(range(num_sensors))
 
         self.model.eval()
         for mask_idx in mask_indices:
             preds = []
             trues = []
-            mask_tag = f"_maskS{mask_idx + 1}"
+            mask_tag = "" if mask_idx is None else f"_maskS{mask_idx + 1}"
             folder_path = './test_results/' + setting + mask_tag + '/'
             if not os.path.exists(folder_path):
                 os.makedirs(folder_path)
@@ -193,9 +193,12 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                     batch_x_mark = batch_x_mark.float().to(self.device)
                     batch_y_mark = batch_y_mark.float().to(self.device)
 
-                    # mask one sensor channel across all time steps
-                    batch_x_masked = batch_x.clone()
-                    batch_x_masked[:, :, mask_idx] = 0.0
+                    # mask one sensor channel across all time steps (if enabled)
+                    if mask_idx is None:
+                        batch_x_masked = batch_x
+                    else:
+                        batch_x_masked = batch_x.clone()
+                        batch_x_masked[:, :, mask_idx] = 0.0
 
                     # decoder input
                     dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
@@ -264,7 +267,10 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 dtw = 'Not calculated'
 
             mae, mse, rmse, mape, mspe = metric(preds, trues)
-            print('maskS{} mse:{}, mae:{}, dtw:{}'.format(mask_idx + 1, mse, mae, dtw))
+            if mask_idx is None:
+                print('unmasked mse:{}, mae:{}, dtw:{}'.format(mse, mae, dtw))
+            else:
+                print('maskS{} mse:{}, mae:{}, dtw:{}'.format(mask_idx + 1, mse, mae, dtw))
             f = open("result_long_term_forecast.txt", 'a')
             f.write(setting + mask_tag + "  \n")
             f.write('mse:{}, mae:{}, dtw:{}'.format(mse, mae, dtw))
