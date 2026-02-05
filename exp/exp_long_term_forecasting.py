@@ -267,14 +267,18 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 dtw = 'Not calculated'
 
             mae, mse, rmse, mape, mspe = metric(preds, trues)
+            mae_per_sensor = np.mean(np.abs(preds - trues), axis=(0, 1))
             if mask_idx is None:
                 print('unmasked mse:{}, mae:{}, dtw:{}'.format(mse, mae, dtw))
+                print('unmasked mae_per_sensor:', mae_per_sensor)
             else:
                 print('maskS{} mse:{}, mae:{}, dtw:{}'.format(mask_idx + 1, mse, mae, dtw))
+                print('maskS{} mae_per_sensor: {}'.format(mask_idx + 1, mae_per_sensor))
             f = open("result_long_term_forecast.txt", 'a')
             f.write(setting + mask_tag + "  \n")
             f.write('mse:{}, mae:{}, dtw:{}'.format(mse, mae, dtw))
             f.write('\n')
+            f.write('mae_per_sensor:{}\n'.format(mae_per_sensor))
             f.write('\n')
             f.close()
 
