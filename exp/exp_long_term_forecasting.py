@@ -228,7 +228,9 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         test_data, test_loader = self._get_data(flag='test')
         if test:
             print('loading model')
-            self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
+            ckpt_setting = getattr(self.args, 'checkpoint_setting', '')
+            ckpt_folder = ckpt_setting if ckpt_setting else setting
+            self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + ckpt_folder, 'checkpoint.pth')))
 
         mask_indices = self._get_test_mask_indices(test_data)
 

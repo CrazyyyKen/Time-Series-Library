@@ -151,6 +151,8 @@ if __name__ == '__main__':
     parser.add_argument('--discsdtw', default=False, action="store_true",
                         help="Discrimitive shapeDTW warp preset augmentation")
     parser.add_argument('--extra_tag', type=str, default="", help="Anything extra")
+    parser.add_argument('--checkpoint_setting', type=str, default="",
+                        help="Override checkpoint folder name to load (useful when setting format changes)")
 
     # TimeXer
     parser.add_argument('--patch_len', type=int, default=16, help='patch length')
