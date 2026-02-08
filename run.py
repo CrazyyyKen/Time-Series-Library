@@ -238,11 +238,12 @@ if __name__ == '__main__':
         for ii in range(args.itr):
             # setting record of experiments
             exp = Exp(args)  # set experiments
-            setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}{}'.format(
+            setting = '{}_{}_{}_{}_dp{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}{}{}'.format(
                 args.task_name,
                 args.model_id,
                 args.model,
                 args.data,
+                os.path.splitext(os.path.basename(args.data_path))[0],
                 args.features,
                 args.seq_len,
                 args.label_len,
@@ -257,7 +258,7 @@ if __name__ == '__main__':
                 args.factor,
                 args.embed,
                 args.distil,
-                args.des, ii, mask_tag)
+                args.des, ii, mask_tag, args.extra_tag)
 
             print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
             exp.train(setting)
@@ -272,11 +273,12 @@ if __name__ == '__main__':
     else:
         exp = Exp(args)  # set experiments
         ii = 0
-        setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}{}'.format(
+        setting = '{}_{}_{}_{}_dp{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}{}{}'.format(
             args.task_name,
             args.model_id,
             args.model,
             args.data,
+            os.path.splitext(os.path.basename(args.data_path))[0],
             args.features,
             args.seq_len,
             args.label_len,
@@ -291,7 +293,7 @@ if __name__ == '__main__':
             args.factor,
             args.embed,
             args.distil,
-            args.des, ii, mask_tag)
+            args.des, ii, mask_tag, args.extra_tag)
 
         print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
         exp.test(setting, test=1)
